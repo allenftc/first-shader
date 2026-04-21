@@ -26,8 +26,9 @@ uniform mat4 shadowProjection;
 
  const vec3 blocklightColor = vec3(1, 0.25, 0.1);
  const vec3 skylightColor = vec3(1, 0.8, 0.6);
+ const vec3 moonlightColor = vec3(0.2, 0.4, 0.6);
  const vec3 sunlightColor = vec3(1.0, 0.9, 0.8);
- const vec3 ambientColor = vec3(0.2, 0.1, 0.2);
+ const vec3 ambientColor = vec3(0.1, 0.05, 0.1);
 
 
 in vec2 texcoord;
@@ -87,8 +88,11 @@ layout(location = 0) out vec4 color;
 float getDaylightMultiplier(float worldTime) {
 	const float transition = 1500;
 	float sunsetFade = smoothstep(12785.0 - transition, 12785.0 + transition, worldTime);
-	float sunriseFade = smoothstep(23285.0 - transition, 23285.0 + transition, worldTime);
+	float sunriseFade = smoothstep(23215.0 - transition, 23215.0 + transition, worldTime);
 	return clamp(1 - sunsetFade + sunriseFade, 0.0, 1.0);
+}
+bool isNightTime(float worldTime) {
+	return worldTime < 12785.0 || worldTime > 23215.0;
 }
 
 void main() {
@@ -116,13 +120,13 @@ vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
 
 vec3 shadow = getSoftShadow(shadowClipPos);
 
-   	vec3 blocklight = (lightmap.x-0.5) * blocklightColor;
-   	vec3 skylight = (lightmap.y-0.5) * skylightColor * (1.0 - rainStrength*0.1) * getDaylightMultiplier(worldTime);
+   	vec3 blocklight = (lightmap.x-0.25) * blocklightColor;
+   	vec3 skylight = (lightmap.y) * skylightColor * (1.0 - rainStrength*0.1) * getDaylightMultiplier(worldTime);
    	vec3 ambient = ambientColor;//*lightmap.y;
-   	vec3 sunlight = 2 * sunlightColor * (1-rainStrength) * clamp(dot(worldLightVector, normal), 0.0, 1.0) * shadow;
+   	vec3 sunlight = (isNightTime(worldTime) ? 2*sunlightColor : moonlightColor) * (1-rainStrength) * clamp(dot(worldLightVector, normal), 0.0, 1.0) * shadow;
 
 	
-   	color.rgb *= blocklight + skylight + ambient + sunlight;
+   	color.rgb *= clamp(blocklight + skylight + ambient + sunlight, 0.0, 2.50);
 	
-	//color = vec4(getDaylightMultiplier(worldTime), 0, 0, 1.0);
+	//color = vec4(shadow/2.0, 1.0);
 }
