@@ -34,5 +34,5 @@ void main() {
  float fogFactor = exp(-FOG_DENSITY * (1.0 - dist));
 
 
-    color.rgb = mix(color.rgb, pow(fogColor, vec3(2.2)), clamp(fogFactor, 0.0, 1.0));
+    color.rgb = mix(color.rgb, pow(vec3(0.7,0.6,0.5), vec3(2.2)), clamp(fogFactor, 0.0, 1.0));
 }

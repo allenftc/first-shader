@@ -13,7 +13,7 @@ in vec4 glcolor;
 layout(location = 0) out vec4 color;
 
 void main() {
-	color = texture(gtexture, texcoord) * glcolor * 0.9;
+	color = texture(gtexture, texcoord) * glcolor * 0.95;
 	color *= texture(lightmap, lmcoord);
 	if (color.a < alphaTestRef) {
 		discard;
