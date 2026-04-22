@@ -3,7 +3,7 @@
 out vec2 lmcoord;
 out vec2 texcoord;
 out vec4 glcolor;
-out vec3 normal;
+flat out vec3 normal;
 
 attribute vec4 mc_Entity;
 
@@ -39,17 +39,34 @@ void main() {
 			windAmount = clamp(playerVelocity/length(pos)/length(pos), 0, 5)*0.5;
 		}
 		
-		
 		if (mat == 67 && texcoord.y < mc_midTexCoord.y) {
 			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
 			pos.y += windAmount * pos.y * 0.25;
 			//pos.z += windAmount * pos.z;
 			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
 		}
-		if (mat == 41) {
+		if (mat == 6741 && texcoord.y < mc_midTexCoord.y) {
 			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
-			//pos.y += windAmount * 0.05 * cos(frameTimeCounter+pos.y*0.5)+windAmount * 0.05;
+			//pos.z += windAmount * pos.z;
 			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
+		}
+		if (mat == 41) {
+			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x * 0.25;
+			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.y*0.5) + windAmount * pos.y * 0.25;
+			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z * 0.25;
+		}
+		if (mat == 10000 && texcoord.y > mc_midTexCoord.y) {
+			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
+			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
+		}
+		if (mat == 10000 && texcoord.y < mc_midTexCoord.y) {
+			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x * 2;
+			//pos.y += windAmount * pos.y * 0.25;
+			//pos.z += windAmount * pos.z;
+			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z * 2;
+		}
+		if (mat == 10001) {
+			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.y*0.5) + windAmount * pos.y;
 		}
 	}
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(pos, 1.0);

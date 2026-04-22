@@ -13,8 +13,9 @@ in vec3 normal;
 uniform vec3 playerLookVector;
 
 
-/* RENDERTARGETS: 0 */
+/* RENDERTARGETS: 0,3 */
 layout(location = 0) out vec4 color;
+layout(location = 1) out vec4 waterNormal;
 
 void main() {
 	vec3 lightDir = 0.01 * shadowLightPosition;
@@ -23,6 +24,7 @@ void main() {
 	color = texture(gtexture, texcoord) * glcolor;
 	color *= texture(lightmap, lmcoord);
 	//color = vec4(vec3(specular), 0.0);
+	waterNormal = vec4(normal, 0.0);
 	if (color.a < alphaTestRef) {
 		discard;
 	}

@@ -6,12 +6,14 @@ out vec4 glcolor;
 out vec3 normal;
 out vec3 viewPos;
 
+attribute vec4 mc_Entity;
+
 uniform float frameTimeCounter;
 uniform vec3 cameraPosition;
 
 uniform mat4 gbufferModelViewInverse;
 float wave(float x, float z) {
-	return 0.067 * (cos(frameTimeCounter*2+x*2)+sin(frameTimeCounter*2+z*2)+0.5*cos(frameTimeCounter*3+x*3)+0.5*sin(frameTimeCounter*3+z*3));
+	return 0.067 * (cos(frameTimeCounter*2+x*2)+sin(frameTimeCounter*2+z*2)+0.5*cos(frameTimeCounter*3+x*8)+0.5*sin(frameTimeCounter*3+z*8));
 }
 
 void main() {
@@ -20,9 +22,8 @@ void main() {
 	vec3 viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
 	vec3 playerFeetPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 	vec3 worldPos = cameraPosition + playerFeetPos;
-	if (distSq < 1000) {
-		
-
+	int mat = int(mc_Entity.x + 0.5);
+	if (distSq < 1000 && mat == 10002) {
 		//pos.x += 0.1 * sin(frameTimeCounter*2+pos.x);
 		pos.y += wave(worldPos.x, worldPos.z);
 		//pos.z += 0.1 * sin(frameTimeCounter*2+pos.z);

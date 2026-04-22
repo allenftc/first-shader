@@ -5,6 +5,7 @@ uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D depthtex0;
+uniform sampler2D depthtex1;
 
  uniform sampler2D shadowtex0;
  uniform sampler2D shadowtex1;
@@ -99,14 +100,15 @@ void main() {
 	color = texture(colortex0, texcoord);
 	vec2 lightmap = texture(colortex1, texcoord).xy;
 	vec3 encodedNormal = texture(colortex2, texcoord).rgb;
-	vec3 normal = normalize(encodedNormal - 0.5) * 2.0;
+	vec3 normal = normalize(encodedNormal * 2.0 - 1.0);
+  normal.z = -normal.z;
 	vec3 lightVector = normalize(shadowLightPosition);
   	vec3 worldLightVector = mat3(gbufferModelViewInverse) * lightVector;
 	
 
 	color.rgb = pow(color.rgb, vec3(2.2));
 
-   float depth = texture(depthtex0, texcoord).r;
+   float depth = max(texture(depthtex0, texcoord).r, texture(depthtex1, texcoord).r);
    if (depth == 1.0) {
        return; // let's skip whats beneath us - the lighting apply logic!
    }
@@ -123,10 +125,12 @@ vec3 shadow = getSoftShadow(shadowClipPos);
    	vec3 blocklight = (lightmap.x-0.25) * blocklightColor;
    	vec3 skylight = (lightmap.y) * skylightColor * (1.0 - rainStrength*0.1) * getDaylightMultiplier(worldTime);
    	vec3 ambient = ambientColor;//*lightmap.y;
-   	vec3 sunlight = (isNightTime(worldTime) ? 2*sunlightColor : moonlightColor) * (1-rainStrength) * clamp(dot(worldLightVector, normal), 0.0, 1.0) * shadow;
+    float hello = clamp(dot(worldLightVector, normal), 0.0, 1.0);
+    float bias = smoothstep(0.0, 0.1, hello);
+   	vec3 sunlight = (isNightTime(worldTime) ? 2.5*sunlightColor : moonlightColor) * (1-rainStrength) * hello * bias * shadow;
 
 	
    	color.rgb *= clamp(blocklight + skylight + ambient + sunlight, 0.0, 2.50);
 	
-	//color = vec4(shadow/2.0, 1.0);
+	//color = vec4(vec3(lightmap.y), 1.0);
 }
