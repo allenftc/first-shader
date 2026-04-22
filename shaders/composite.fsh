@@ -26,7 +26,7 @@ uniform mat4 shadowProjection;
 
  const vec3 blocklightColor = vec3(1, 0.25, 0.1);
  const vec3 skylightColor = vec3(1, 0.8, 0.6);
- const vec3 moonlightColor = vec3(0.2, 0.4, 0.6);
+ const vec3 moonlightColor = vec3(0.1, 0.05, 0.2);
  const vec3 sunlightColor = vec3(1.0, 0.9, 0.8);
  const vec3 ambientColor = vec3(0.1, 0.05, 0.1);
 

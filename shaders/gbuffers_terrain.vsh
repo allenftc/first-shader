@@ -12,7 +12,10 @@ flat out int mat;
 uniform float frameTimeCounter;
 
 uniform vec3 cameraPosition;
+uniform vec3 previousCameraPosition;
+uniform float frameTime;
 uniform mat4 gbufferModelViewInverse;
+
 
 in vec2 mc_midTexCoord;
 
@@ -24,20 +27,24 @@ void main() {
 	float distSq = dot(gl_Vertex.xyz, gl_Vertex.xyz);
 	vec3 pos = gl_Vertex.xyz;
 
+	float playerVelocity = length(cameraPosition - previousCameraPosition) / frameTime;
+
 	if (distSq < 10000) {
 		vec3 viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
 		vec3 playerFeetPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 		vec3 worldPos = cameraPosition + playerFeetPos;
 		mat = int(mc_Entity.x + 0.5);
+		float windAmount = clamp(playerVelocity/length(pos)/length(pos), 0, 5)*0.5;
 		if (mat == 67 && texcoord.y < mc_midTexCoord.y) {
-			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5);
-			//pos.y += 0.05 * cos(frameTimeCounter+pos.y*0.5)+0.05;
-			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5);
+			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
+			pos.y += windAmount * pos.y * 0.25;
+			//pos.z += windAmount * pos.z;
+			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
 		}
 		if (mat == 41) {
-			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5);
-			//pos.y += 0.05 * cos(frameTimeCounter+pos.y*0.5)+0.05;
-			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5);
+			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
+			//pos.y += windAmount * 0.05 * cos(frameTimeCounter+pos.y*0.5)+windAmount * 0.05;
+			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
 		}
 	}
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(pos, 1.0);

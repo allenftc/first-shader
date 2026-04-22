@@ -3,19 +3,28 @@
 out vec2 lmcoord;
 out vec2 texcoord;
 out vec4 glcolor;
+out vec3 normal;
+out vec3 viewPos;
 
 uniform float frameTimeCounter;
 uniform vec3 cameraPosition;
 
 uniform mat4 gbufferModelViewInverse;
+float wave(float x, float z) {
+	return 0.067 * (cos(frameTimeCounter*2+x*2)+sin(frameTimeCounter*2+z*2)+0.5*cos(frameTimeCounter*3+x*3)+0.5*sin(frameTimeCounter*3+z*3));
+}
+
 void main() {
 	float distSq = dot(gl_Vertex.xyz, gl_Vertex.xyz);
 	vec3 pos = gl_Vertex.xyz;
+	vec3 viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
+	vec3 playerFeetPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
+	vec3 worldPos = cameraPosition + playerFeetPos;
 	if (distSq < 10000) {
 		
-		vec3 worldPos = cameraPosition + pos; // w should be ~1.0 for terrain
+
 		//pos.x += 0.1 * sin(frameTimeCounter*2+pos.x);
-		pos.y += 0.05 * (cos(frameTimeCounter*2+worldPos.x*2)+sin(frameTimeCounter*2+worldPos.z*2));
+		pos.y += wave(worldPos.x, worldPos.z);
 		//pos.z += 0.1 * sin(frameTimeCounter*2+pos.z);
 		
 	}
@@ -23,4 +32,9 @@ void main() {
 	texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 	lmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
 	glcolor = gl_Color;
+	float a = 0.1;
+	float dydx = wave(worldPos.x+a, worldPos.z) - wave(worldPos.x-a, worldPos.z);
+	float dydz = wave(worldPos.x, worldPos.z+a) - wave(worldPos.x, worldPos.z-a);
+	normal = normalize(vec3(-dydx, 1.0, -dydz));
+	viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
 }
