@@ -29,12 +29,17 @@ void main() {
 
 	float playerVelocity = length(cameraPosition - previousCameraPosition) / frameTime;
 
-	if (distSq < 10000) {
+	if (distSq < 1000) {
 		vec3 viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
 		vec3 playerFeetPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 		vec3 worldPos = cameraPosition + playerFeetPos;
 		mat = int(mc_Entity.x + 0.5);
-		float windAmount = clamp(playerVelocity/length(pos)/length(pos), 0, 5)*0.5;
+		float windAmount = 0;
+		if (distSq < 100) {
+			windAmount = clamp(playerVelocity/length(pos)/length(pos), 0, 5)*0.5;
+		}
+		
+		
 		if (mat == 67 && texcoord.y < mc_midTexCoord.y) {
 			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
 			pos.y += windAmount * pos.y * 0.25;

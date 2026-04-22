@@ -20,7 +20,7 @@ void main() {
 	vec3 viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
 	vec3 playerFeetPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 	vec3 worldPos = cameraPosition + playerFeetPos;
-	if (distSq < 10000) {
+	if (distSq < 1000) {
 		
 
 		//pos.x += 0.1 * sin(frameTimeCounter*2+pos.x);
