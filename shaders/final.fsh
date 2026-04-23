@@ -2,6 +2,7 @@
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
+uniform sampler2D colortex3;
 uniform int isEyeInWater;
 uniform float constantMood;
 uniform float currentPlayerAir;
@@ -21,8 +22,8 @@ layout(location = 0) out vec4 color;
 void main() {
     vec2 uv = texcoord;
     float air = currentPlayerAir < 0.0 ? 0.0 : (1.0-currentPlayerAir);
-    float xWarpAmount = (isEyeInWater == 1 ? 0.005 : 0) + 0.01 * air;
-    float yWarpAmount = (isEyeInWater == 1 ? 0.005 : 0) + (is_burning ? 0.01 : 0) + 0.01 * air;
+    float xWarpAmount = (isEyeInWater == 1 ? 0.00 : 0) + 0.01 * air;
+    float yWarpAmount = (isEyeInWater == 1 ? 0.00 : 0) + (is_burning ? 0.01 : 0) + 0.01 * air;
     uv.x += xWarpAmount * sin(uv.x * 10.0 + frameTimeCounter * 5.0);
     uv.y += yWarpAmount * sin(uv.y * 10.0 + frameTimeCounter * 5.0);
     if (is_hurt) {

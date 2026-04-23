@@ -6,6 +6,7 @@ uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
+uniform sampler2D noisetex;
 
  uniform sampler2D shadowtex0;
  uniform sampler2D shadowtex1;
@@ -24,6 +25,12 @@ uniform sampler2D depthtex1;
 
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
+uniform mat4 gbufferProjection;
+
+ 
+
+uniform vec2 texelSize;
+
 
  const vec3 blocklightColor = vec3(1, 0.25, 0.1);
  const vec3 skylightColor = vec3(1, 0.8, 0.6);
@@ -77,6 +84,10 @@ layout(location = 0) out vec4 color;
       offset /= shadowMapResolution; // offset in the rotated direction by the specified amount. We divide by the resolution so our offset is in terms of pixels
       vec4 offsetShadowClipPos = shadowClipPos + vec4(offset, 0.0, 0.0); // add offset
       offsetShadowClipPos.z -= 0.001; // apply bias
+      if (any(lessThan(offsetShadowClipPos.xy, vec2(-1.0))) || any(greaterThan(offsetShadowClipPos.xy, vec2(1.0)))) {
+          shadowAccum += vec3(1.0);
+          continue;
+      }
       offsetShadowClipPos.xyz = distortShadowClipPos(offsetShadowClipPos.xyz); // apply distortion
       vec3 shadowNDCPos = offsetShadowClipPos.xyz / offsetShadowClipPos.w; // convert to NDC space
       vec3 shadowScreenPos = shadowNDCPos * 0.5 + 0.5; // convert to screen space
@@ -84,8 +95,41 @@ layout(location = 0) out vec4 color;
     }
   }
 
+
+
   return shadowAccum / float(samples); // divide sum by count, getting average shadow
 }
+  vec3 getViewPos(vec2 uv, float depth) {
+    vec3 ndcPos = vec3(uv, depth) * 2.0 - 1.0; // normalized device coordinates (NDC); [-1.0, 1.0]
+    return projectAndDivide(gbufferProjectionInverse, ndcPos); // position in view space
+  }
+  float getAO(vec3 viewPos, vec3 viewNormal) {
+    vec2 noiseUV = texcoord / (vec2(4.0) * texelSize);
+    vec3 noise = texture(noisetex, noiseUV).rgb * 2.0 - 1.0;
+
+    vec3 tangent = normalize(noise - viewNormal * dot(noise, viewNormal));
+    vec3 bitangent = cross(viewNormal, tangent);
+    mat3 tbn = mat3(tangent, bitangent, viewNormal);
+
+    float occlusion = 0.0;
+
+    for (int i = 0; i < 16; i++) {
+        float fi = float(i);
+        float theta = 2.399963 * fi;
+        float r = sqrt(fi + 0.5) / sqrt(16.0);
+        vec3 sampleVec = tbn * vec3(cos(theta) * r, sin(theta) * r, sqrt(1.0 - r * r));
+        vec3 samplePos = viewPos + sampleVec * 0.1;
+        vec3 sampleNDC = projectAndDivide(gbufferProjection, samplePos);
+        vec2 sampleUV = sampleNDC.xy * 0.5 + 0.5;
+
+        float sampleDepth = texture(depthtex0, sampleUV).r;
+        vec3 actualPos = getViewPos(sampleUV, sampleDepth);
+
+        float rangeCheck = smoothstep(0.0, 1.0, 0.5 / abs(viewPos.z - actualPos.z));
+        occlusion += (sampleDepth >= sampleNDC.z ? 1.0 : 0.0) * rangeCheck;
+    }
+    return 1.0 - occlusion / 16.0;
+  }
 float getDaylightMultiplier(float worldTime) {
 	const float transition = 1500;
 	float sunsetFade = smoothstep(12785.0 - transition, 12785.0 + transition, worldTime);
@@ -120,7 +164,14 @@ vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
 
 // note how subsequent conversion code has been moved to the getSoftShadow function
 
+
 vec3 shadow = getSoftShadow(shadowClipPos);
+
+    mat3 worldToView = mat3(transpose(gbufferModelViewInverse));
+    vec3 viewNormal = normalize(worldToView * normal);
+
+    float ao = getAO(viewPos, viewNormal);
+    ao = clamp(ao, 0.0, 1.0);
 
    	vec3 blocklight = (lightmap.x-0.25) * blocklightColor;
    	vec3 skylight = (lightmap.y) * skylightColor * (1.0 - rainStrength*0.1) * getDaylightMultiplier(worldTime);
@@ -130,7 +181,7 @@ vec3 shadow = getSoftShadow(shadowClipPos);
    	vec3 sunlight = (isNightTime(worldTime) ? 2.5*sunlightColor : moonlightColor) * (1-rainStrength) * hello * bias * shadow;
 
 	
-   	color.rgb *= clamp(blocklight + skylight + ambient + sunlight, 0.0, 2.50);
-	
+   	color.rgb *= clamp(blocklight + skylight + ambient + sunlight, 0.0, 1.41);
+  //color = vec4(vec3(ao), 1.0);
 	//color = vec4(vec3(lightmap.y), 1.0);
 }

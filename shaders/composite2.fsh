@@ -1,65 +1,45 @@
 #version 330 compatibility
 
 uniform sampler2D colortex0;
-uniform sampler2D colortex1;
-uniform sampler2D colortex2;
-uniform sampler2D colortex3;
 uniform sampler2D depthtex0;
-uniform sampler2D depthtex1;
 
+uniform mat4 gbufferProjectionInverse;
+ uniform vec3 fogColor;
+ uniform float far;
+ uniform int worldTime;
 
 in vec2 texcoord;
 
-/* RENDERTARGETS: 0,1 */
-layout(location = 0) out vec4 refractionColor;
-layout(location = 1) out vec4 bloomColor;
+const int FOG_DENSITY = 5;
+
+vec3 projectAndDivide(mat4 projectionMatrix, vec3 position){
+  vec4 homPos = projectionMatrix * vec4(position, 1.0);
+  return homPos.xyz / homPos.w;
+}
+float getDaylightMultiplier(float worldTime) {
+	const float transition = 1500;
+	float sunsetFade = smoothstep(12785.0 - transition, 12785.0 + transition, worldTime);
+	float sunriseFade = smoothstep(23215.0 - transition, 23215.0 + transition, worldTime);
+	return clamp(1 - sunsetFade + sunriseFade, 0.0, 1.0);
+}
+
+/* RENDERTARGETS: 0 */
+layout(location = 0) out vec4 color;
 
 void main() {
-    float depthSurface = texture(depthtex0, texcoord).r;
-    float depthBehind = texture(depthtex1, texcoord).r;
+  color = texture(colortex0, texcoord);
 
-    vec2 uv = texcoord;
+  float depth = texture(depthtex0, texcoord).r;
+  if (depth == 1.0){
+    return;
+  }
 
-    float waterDepthDiff = depthBehind - depthSurface;
-    if (depthSurface < depthBehind && waterDepthDiff > 0.001) {
-        if (depthSurface < depthBehind) {
-            vec3 waterNormal = texture(colortex3, texcoord).rgb * 2.0 - 1.0;
-            
-            vec2 edgeFade = smoothstep(0.0, 0.05, texcoord) * smoothstep(1.0, 0.95, texcoord);
-            float fade = edgeFade.x * edgeFade.y;
-            float distortStrength = clamp(waterDepthDiff * 10.0, 0.0, 1.0) * 0.02;
-            vec2 distortedUV = texcoord + waterNormal.xz * distortStrength * fade;
-            
-            distortedUV = clamp(distortedUV, 0.001, 0.999);
-            
-            float distortedDepth = texture(depthtex1, distortedUV).r;
-            if (distortedDepth < depthSurface + 0.001) { // small bias
-                uv = texcoord;
-            } 
-            else {
-                uv = distortedUV;
-            }
-        }
-    }
+  vec3 ndcPos = vec3(texcoord.xy, depth) * 2.0 - 1.0;
+  vec3 viewPos = projectAndDivide(gbufferProjectionInverse, ndcPos);
 
-    refractionColor = texture(colortex0, uv);
-    
-    vec3 scene = texture(colortex1, texcoord).rgb;
-    
-    float brightness = dot(scene, vec3(0.2, 0.7, 0.07));
-    vec3 bright = brightness > 0.9 ? scene : vec3(0.0);
-    
-    vec3 blur = vec3(0.0);
-    float size = 0.003;
-    for (int x = -3; x <= 3; x++) {
-        for (int y = -3; y <= 3; y++) {
-            vec2 offset = vec2(x, y) * size;
-            vec3 s = texture(colortex0, texcoord + offset).rgb;
-            float b = dot(s, vec3(0.2, 0.7, 0.07));
-            blur += b > 0.9 ? s : vec3(0.0);
-        }
-    }
-    blur /= 49.0;
-    
-    bloomColor = vec4(blur, 1.0);
+   float dist = length(viewPos) / far;
+ float fogFactor = exp(-FOG_DENSITY * (1.0 - dist));
+
+
+    color.rgb = mix(color.rgb, pow(vec3(0.7,0.6,0.6) * getDaylightMultiplier(worldTime), vec3(2.2)), clamp(fogFactor, 0.0, 1.0));
 }

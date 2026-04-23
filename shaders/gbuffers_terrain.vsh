@@ -36,12 +36,12 @@ void main() {
 		mat = int(mc_Entity.x + 0.5);
 		float windAmount = 0;
 		if (distSq < 100) {
-			windAmount = clamp(playerVelocity/length(pos)/length(pos), 0, 5)*0.5;
+			windAmount = clamp(playerVelocity/length(pos)/length(pos), 0, 5)*0.25;
 		}
 		
 		if (mat == 67 && texcoord.y < mc_midTexCoord.y) {
 			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x;
-			pos.y += windAmount * pos.y * 0.25;
+			pos.y += windAmount * -0.25;
 			//pos.z += windAmount * pos.z;
 			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
 		}
@@ -52,7 +52,7 @@ void main() {
 		}
 		if (mat == 41) {
 			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x * 0.25;
-			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.y*0.5) + windAmount * pos.y * 0.25;
+			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.y * 0.25;
 			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z * 0.25;
 		}
 		if (mat == 10000 && texcoord.y > mc_midTexCoord.y) {
@@ -66,7 +66,7 @@ void main() {
 			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z * 2;
 		}
 		if (mat == 10001) {
-			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.y*0.5) + windAmount * pos.y;
+			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.y * 0.25;
 		}
 	}
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(pos, 1.0);
