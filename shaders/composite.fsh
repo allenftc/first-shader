@@ -16,6 +16,8 @@ uniform sampler2D noisetex;
  uniform float rainStrength;
  uniform float rainfall;
  uniform int worldTime;
+ uniform int isEyeInWater;
+ uniform float frameTimeCounter;
 
  /*
  const int colortex0Format = RGB16;
@@ -28,8 +30,9 @@ uniform sampler2D noisetex;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform mat4 gbufferProjection;
+uniform vec3 skyColor;
 
- 
+uniform vec3 cameraPosition;
 
 uniform vec2 texelSize;
 
@@ -142,6 +145,151 @@ bool isNightTime(float worldTime) {
 	return worldTime < 12785.0 || worldTime > 23215.0;
 }
 
+float wave(float x, float z) {
+	return 0.1 * (cos(frameTimeCounter*2+x*2)+sin(frameTimeCounter*2+z*2)+0.5*cos(frameTimeCounter*3+x*8)+0.5*sin(frameTimeCounter*3+z*8)) - 0.2;
+}
+
+vec3 getNormal(vec3 pos) {
+	float a = 0.1;
+	float h0 = 0.0, hx = 0.0, hz = 0.0;
+    
+    h0 += 0.025 * cos(frameTimeCounter*2.0 + pos.x*12) + 0.05*sin(frameTimeCounter*2.0 + pos.z*6.7);
+    hx += 0.025 * cos(frameTimeCounter*2.0 + (pos.x+a)*20) + 0.05*sin(frameTimeCounter*2.0 + pos.z*20);
+    hz += 0.025 * cos(frameTimeCounter*2.0 + pos.x*6.7) + 0.05*sin(frameTimeCounter*2.0 + (pos.z+a)*12);
+    
+    h0 += 0.012 * cos(frameTimeCounter*3.0 + pos.x*67 + pos.z*41);
+    hx += 0.012 * cos(frameTimeCounter*3.0 + (pos.x+a)*67 + pos.z*41);
+    hz += 0.012 * cos(frameTimeCounter*3.0 + pos.x*67 + (pos.z+a)*41);
+    
+    h0 += 0.0048 * sin(frameTimeCounter*5.0 + pos.x*12.0) * sin(frameTimeCounter*4.0 + pos.z*12.0);
+    hx += 0.0048 * sin(frameTimeCounter*5.0 + (pos.x+a)*12.0) * sin(frameTimeCounter*4.0 + pos.z*12.0);
+    hz += 0.0048 * sin(frameTimeCounter*5.0 + pos.x*12.0) * sin(frameTimeCounter*4.0 + (pos.z+a)*12.0);
+    
+    float dydx = (hx - h0) / a;
+    float dydz = (hz - h0) / a;
+	return normalize(vec3(-dydx, 1.0, -dydz));
+}
+
+vec3 raymarch(vec3 direction, vec3 hitPoint, inout float infinite, float dither) {
+	float stepSize = 0.1;
+	vec3 pathIncrement = direction * stepSize;
+	vec3 currentMarchpoint = hitPoint + pathIncrement;
+	vec3 oldMarchpoint;
+	float depth;
+	float depthDiff = 1.0;
+	vec4 screenMarchPos = gbufferProjection * vec4(currentMarchpoint, 1.0);
+	float marchDist = 0.0;
+	screenMarchPos /= screenMarchPos.w;
+	screenMarchPos.xy = screenMarchPos.xy * 0.5 + 0.5;
+	float prevScreenDepth = screenMarchPos.z;
+	float hitDepth = screenMarchPos.z;
+	bool search = true;
+	bool hidden = false;
+	bool firstHidden = true;
+	bool outOfEyeFlag = false;
+	bool tooFar = false;
+	vec4 lastScreenMarchPos;
+
+	int hiddenSteps = 0;
+	bool hiddens = false;
+	
+	for (int i = 0; i <100; i++) {
+		if (search) {
+			pathIncrement *= 0.5;
+			currentMarchpoint += pathIncrement * sign(depthDiff);
+		}
+		else {
+			oldMarchpoint = currentMarchpoint;
+			marchDist += stepSize;
+			currentMarchpoint = hitPoint + (direction * marchDist);
+			pathIncrement = currentMarchpoint - oldMarchpoint;
+		}
+		lastScreenMarchPos = screenMarchPos;
+		screenMarchPos = gbufferProjection * vec4(currentMarchpoint, 1.0);
+		screenMarchPos /= screenMarchPos.w;
+		screenMarchPos.xy = screenMarchPos.xy * 0.5 + 0.5;
+		if (screenMarchPos.x < 0.0 || screenMarchPos.x > 1.0 || screenMarchPos.y < 0.0 || screenMarchPos.y > 1.0 || screenMarchPos.z < 0.0) {
+			outOfEyeFlag = true;
+		}
+
+		if (screenMarchPos.z > 1.0) {
+			tooFar = true;
+		}
+
+		depth = texture(depthtex1, screenMarchPos.xy).x;
+		depthDiff = depth - screenMarchPos.z;
+
+		if (depthDiff < 0.0 && abs(depth - prevScreenDepth) > abs(screenMarchPos.z - lastScreenMarchPos.z)) {
+			hidden = true;
+			hiddens = true;
+			if (firstHidden) {
+				firstHidden = false;
+			}
+		}
+		else if (depthDiff > 0.0){
+			hidden = false;
+			if (!hiddens) {
+				hiddenSteps++;
+			}
+		}
+		if (search && depthDiff < 0.0 && hidden == false) {
+			search = false;
+		}
+
+		prevScreenDepth = depth;
+	}
+	infinite = float(depth > 0.999);
+
+	if(outOfEyeFlag) {
+		infinite = 1.0;
+		return screenMarchPos.xyz;
+	}
+	else if (tooFar) {
+		infinite = 1.0;
+		return screenMarchPos.xyz;
+	}
+	else if (hiddenSteps < 3 || depth > hitDepth) {
+		return screenMarchPos.xyz;
+	}
+	else {
+		infinite = 1.0;
+		return vec3(infinite);
+	}
+}
+
+
+
+vec3 getReflected(
+	vec3 viewPos,
+	vec3 normal,
+	vec3 baseColor,
+	vec3 skyReflect,
+	vec3 reflected,
+	float fresnel,
+	float visibleSky,
+	float dither,
+	vec3 lightColor
+) {
+	float infinite = 1.0;
+	vec3 hit = raymarch(reflected, viewPos, infinite, dither);
+	vec4 reflColor = vec4(infinite > 0.5 ? skyReflect * visibleSky : texture(colortex3, hit.xy).rgb, 1.0);
+	//vec3 reflectionColorSky = mix(skyReflect * visibleSky, reflColor.rgb, reflColor.a);
+	vec3 V = normalize(-viewPos);
+	vec3 L = normalize(shadowLightPosition);
+	float sunSpec = pow(max(dot(reflect(-L, normal), V), 0.0), 128.0);
+
+	return mix(baseColor, reflColor.rgb, fresnel) + sunSpec * lightColor *visibleSky;
+
+}
+
+float hash12(vec2 point)
+{
+    point = 0.0002314814814814815 * point + vec2(0.25, 0.0);
+    float state = fract(dot(point * point, vec2(3571.0)));
+    return fract(state * state * 7142.0);
+}
+
+
 void main() {
 	color = texture(colortex0, texcoord);
 	vec2 lightmap = texture(colortex1, texcoord).xy;
@@ -155,9 +303,9 @@ void main() {
 	color.rgb = pow(color.rgb, vec3(2.2));
 
    float depth = max(texture(depthtex0, texcoord).r, texture(depthtex1, texcoord).r);
-   if (depth == 1.0) {
-       return; // let's skip whats beneath us - the lighting apply logic!
-   }
+   if (depth > 0.9999) {
+    return;
+}
      vec3 ndcPos = vec3(texcoord.xy, depth) * 2.0 - 1.0; // normalized device coordinates (NDC); [-1.0, 1.0]
   vec3 viewPos = projectAndDivide(gbufferProjectionInverse, ndcPos); // position in view space
   vec3 feetPlayerPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz; // position relative to the feet of the player
@@ -169,8 +317,11 @@ void main() {
 
 
   vec3 shadowViewPos = (shadowModelView * vec4 (feetPlayerPos, 1.0)).xyz;
-vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
-  if (waterInFront) {
+  vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
+  if (isEyeInWater == 1) {
+      shadowClipPos.xz += getNormal(feetPlayerPos + cameraPosition).xz * 0.01;
+  }
+  else if (waterInFront) {
         shadowClipPos.xz += waterNormal.xz *0.01;
   }
 
@@ -193,8 +344,10 @@ vec3 shadow = getSoftShadow(shadowClipPos);
    	vec3 sunlight = (isNightTime(worldTime) ? 4*sunlightColor : moonlightColor) * rainMultipler * hello * bias * shadow;
 
 	
-   	color.rgb *= blocklight + skylight + ambient + sunlight, 0.0, 200;
+   	color.rgb *= blocklight + skylight + ambient + sunlight;
   //color = vec4(vec3(ao), 1.0);
 	//color = vec4(vec3(texture(shadowtex0, texcoord)), 1.0);
   //color = vec4(waterNormal.xz, 0, 1.0);
+
+
 }

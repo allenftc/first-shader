@@ -16,8 +16,9 @@ uniform bool is_hurt;
 uniform float frameTimeCounter;
 
 in vec2 texcoord;
-
+/* RENDERTARGETS: 0,4 */
 layout(location = 0) out vec4 color;
+layout(location = 4) out vec4 screenColor;
 
 vec3 tonemap(vec3 color) {
     return color / (color + vec3(1.0));

@@ -14,11 +14,14 @@ uniform mat4 gbufferModelViewInverse;
 uniform vec3 shadowLightPosition;
 uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
+uniform mat4 gbufferProjection;
 uniform int worldTime;
 uniform float rainStrength;
+uniform float frameTimeCounter;
 
 uniform int isEyeInWater;
 uniform float rainfall;
+uniform vec3 skyColor;
 
 in vec2 texcoord;
 in vec2 lmcoord;
@@ -55,6 +58,58 @@ float getShadowVisible(vec3 pos) {
 bool isNightTime(float worldTime) {
 	return worldTime > 12785.0 && worldTime < 23215.0;
 }
+
+vec3 raymarchSSR(vec3 viewPos, vec3 dir, out float hitMask) {
+  float stepSize = 0.25;
+  vec3 pos = viewPos;
+  hitMask = 0.0;
+
+  for (int i = 0; i < 80; i++) {
+    pos += dir * stepSize;
+
+    vec4 clip = gbufferProjection * vec4(pos, 1.0);
+    clip /= clip.w;
+    vec3 screen = clip.xyz * 0.5 + 0.5;
+
+    if (screen.x < 0.0 || screen.x > 1.0 ||
+        screen.y < 0.0 || screen.y > 1.0 ||
+        screen.z < 0.0 || screen.z > 1.0) {
+      break;
+    }
+
+    float sceneDepth = texture(depthtex1, screen.xy).r;
+    if (screen.z > sceneDepth && sceneDepth < 0.9999) {
+      hitMask = 1.0;
+      return screen;
+    }
+  }
+
+  return vec3(0.0);
+}
+  vec3 getViewPos(vec2 uv, float depth) {
+    vec3 ndcPos = vec3(uv, depth) * 2.0 - 1.0; // normalized device coordinates (NDC); [-1.0, 1.0]
+    return projectAndDivide(gbufferProjectionInverse, ndcPos); // position in view space
+  }
+  vec3 getNormal(vec3 pos) {
+	float a = 0.1;
+	float h0 = 0.0, hx = 0.0, hz = 0.0;
+    
+    h0 += 0.025 * cos(frameTimeCounter*2.0 + pos.x*12) + 0.05*sin(frameTimeCounter*2.0 + pos.z*6.7);
+    hx += 0.025 * cos(frameTimeCounter*2.0 + (pos.x+a)*20) + 0.05*sin(frameTimeCounter*2.0 + pos.z*20);
+    hz += 0.025 * cos(frameTimeCounter*2.0 + pos.x*6.7) + 0.05*sin(frameTimeCounter*2.0 + (pos.z+a)*12);
+    
+    h0 += 0.012 * cos(frameTimeCounter*3.0 + pos.x*67 + pos.z*41);
+    hx += 0.012 * cos(frameTimeCounter*3.0 + (pos.x+a)*67 + pos.z*41);
+    hz += 0.012 * cos(frameTimeCounter*3.0 + pos.x*67 + (pos.z+a)*41);
+    
+    h0 += 0.0048 * sin(frameTimeCounter*5.0 + pos.x*12.0) * sin(frameTimeCounter*4.0 + pos.z*12.0);
+    hx += 0.0048 * sin(frameTimeCounter*5.0 + (pos.x+a)*12.0) * sin(frameTimeCounter*4.0 + pos.z*12.0);
+    hz += 0.0048 * sin(frameTimeCounter*5.0 + pos.x*12.0) * sin(frameTimeCounter*4.0 + (pos.z+a)*12.0);
+    
+    float dydx = (hx - h0) / a;
+    float dydz = (hz - h0) / a;
+	return normalize(vec3(-dydx, 1.0, -dydz));
+}
     
 void main() {
     float depthSurface = texture(depthtex0, texcoord).r;
@@ -72,7 +127,10 @@ void main() {
     vec3 viewPos = viewPosH.xyz / viewPosH.w;
     vec3 pos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 
-    bool waterInFront = depthBehind - depthSurface > 0.00000001;
+    vec4 waterData = texture(colortex3, texcoord);
+    bool hasWaterData = waterData.a > 0.5;
+    bool waterInFront = hasWaterData && (depthBehind - depthSurface > 0.00001);
+    vec3 waterNormal = hasWaterData ? normalize(waterData.xyz * 2.0 - 1.0) : vec3(0.0, 1.0, 0.0);
 
     if (depth == 1.0) {
         return;
@@ -103,4 +161,24 @@ void main() {
     vec3 godRayColor = vec3(1.0, 0.9, 0.8) * lightAccum * (1-lightmap.y) * (waterInFront ? 0.2 : 1.0) * (isEyeInWater == 1 ? 0.25 : 1.0) * 1.25;
     color.rgb = 1.0 - ((1.0 - color.rgb) * (1.0 - godRayColor));
     //color = vec4(vec3(lightmap.y), 1.0);
+
+    if (waterInFront) {
+        vec3 waterPosVS = getViewPos(texcoord, depthSurface);
+        vec3 V = normalize(-waterPosVS);
+        vec3 R = reflect(-V, waterNormal);
+
+        float hitMask;
+        vec3 hit = raymarchSSR(waterPosVS + waterNormal * 0.05, R, hitMask);
+
+        vec3 reflColor = mix(skyColor, texture(colortex0, hit.xy).rgb, hitMask);
+
+        float fresnel = pow(1.0 - max(dot(waterNormal, V), 0.0), 1.5);
+
+        float edgeFade = smoothstep(0.0, 0.05, texcoord.x) *
+        smoothstep(0.0, 0.05, texcoord.y) *
+        smoothstep(1.0, 0.95, texcoord.x) *
+        smoothstep(1.0, 0.95, texcoord.y);
+
+        color.rgb = mix(color.rgb, reflColor, fresnel * edgeFade * 0.5);
+    }
 }
