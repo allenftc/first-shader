@@ -13,7 +13,7 @@ uniform vec3 cameraPosition;
 
 uniform mat4 gbufferModelViewInverse;
 float wave(float x, float z) {
-	return 0.1 * (cos(frameTimeCounter*2+x*2)+sin(frameTimeCounter*2+z*2)+0.5*cos(frameTimeCounter*3+x*8)+0.5*sin(frameTimeCounter*3+z*8)) - 0.1;
+	return 0.2 * (cos(frameTimeCounter*2+x*2)+sin(frameTimeCounter*2+z*2)+0.5*cos(frameTimeCounter*3+x*8)+0.5*sin(frameTimeCounter*3+z*8)) - 0.2;
 }
 
 void main() {

@@ -18,6 +18,7 @@ uniform int worldTime;
 uniform float rainStrength;
 
 uniform int isEyeInWater;
+uniform float rainfall;
 
 in vec2 texcoord;
 in vec2 lmcoord;
@@ -58,7 +59,8 @@ bool isNightTime(float worldTime) {
 void main() {
     float depthSurface = texture(depthtex0, texcoord).r;
     float depthBehind = texture(depthtex1, texcoord).r;
-    bool waterInFront = depthBehind - depthSurface > 0.001;
+    
+        
     
     color = texture(colortex0, texcoord);
     vec2 lightmap = texture(colortex1, texcoord).xy;
@@ -70,7 +72,9 @@ void main() {
     vec3 viewPos = viewPosH.xyz / viewPosH.w;
     vec3 pos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 
-    if (depth == 1.0){
+    bool waterInFront = depthBehind - depthSurface > 0.00000001;
+
+    if (depth == 1.0) {
         return;
     }
 
@@ -79,7 +83,7 @@ void main() {
     }
     float stepSize = 1.0 / float(GOD_RAY_STEPS);
     float lightAccum = 0.0;
-    float decay = 1.0;
+    float decay = 1.0;  
     float totalSamples = 0;
 
     for (int i = 0; i < GOD_RAY_STEPS; i++) {
@@ -96,6 +100,7 @@ void main() {
     lightAccum *= 2*(1.0 - rainStrength) * stepSize * (1.0-avgLight*0.8);
 
     
-    color.rgb += vec3(1.0, 0.9, 0.8) * lightAccum * (1-lightmap.y)*5 * (waterInFront ? 0.1 : 1.0) * (isEyeInWater == 1 ? 0.25 : 1.0);
+    vec3 godRayColor = vec3(1.0, 0.9, 0.8) * lightAccum * (1-lightmap.y) * (waterInFront ? 0.2 : 1.0) * (isEyeInWater == 1 ? 0.25 : 1.0) * 1.25;
+    color.rgb = 1.0 - ((1.0 - color.rgb) * (1.0 - godRayColor));
     //color = vec4(vec3(lightmap.y), 1.0);
 }

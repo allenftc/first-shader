@@ -10,7 +10,7 @@ uniform mat4 gbufferProjectionInverse;
 
 in vec2 texcoord;
 
-const int FOG_DENSITY = 5;
+const int FOG_DENSITY = 8;
 
 vec3 projectAndDivide(mat4 projectionMatrix, vec3 position){
   vec4 homPos = projectionMatrix * vec4(position, 1.0);
@@ -41,5 +41,5 @@ void main() {
  float fogFactor = exp(-FOG_DENSITY * (1.0 - dist));
 
 
-    color.rgb = mix(color.rgb, pow(vec3(0.7,0.6,0.6) * getDaylightMultiplier(worldTime), vec3(2.2)), clamp(fogFactor, 0.0, 1.0));
+    color.rgb = mix(color.rgb, pow(fogColor * getDaylightMultiplier(worldTime), vec3(2.2)), clamp(fogFactor, 0.0, 1.0));
 }

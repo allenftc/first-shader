@@ -4,6 +4,7 @@
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
+uniform sampler2D colortex3;
 uniform sampler2D depthtex0;
 uniform sampler2D depthtex1;
 uniform sampler2D noisetex;
@@ -13,6 +14,7 @@ uniform sampler2D noisetex;
  uniform sampler2D shadowcolor0;
 
  uniform float rainStrength;
+ uniform float rainfall;
  uniform int worldTime;
 
  /*
@@ -33,10 +35,10 @@ uniform vec2 texelSize;
 
 
  const vec3 blocklightColor = vec3(1, 0.25, 0.1);
- const vec3 skylightColor = vec3(1, 0.8, 0.6);
- const vec3 moonlightColor = vec3(0.1, 0.05, 0.2);
+ const vec3 skylightColor = vec3(0.6, 0.4, 0.3);
+ const vec3 moonlightColor = vec3(0.2, 0.05, 0.3);
  const vec3 sunlightColor = vec3(1.0, 0.9, 0.8);
- const vec3 ambientColor = vec3(0.1, 0.05, 0.1);
+ const vec3 ambientColor = vec3(0.1);
 
 
 in vec2 texcoord;
@@ -131,7 +133,7 @@ layout(location = 0) out vec4 color;
     return 1.0 - occlusion / 16.0;
   }
 float getDaylightMultiplier(float worldTime) {
-	const float transition = 1500;
+	const float transition = 1000;
 	float sunsetFade = smoothstep(12785.0 - transition, 12785.0 + transition, worldTime);
 	float sunriseFade = smoothstep(23215.0 - transition, 23215.0 + transition, worldTime);
 	return clamp(1 - sunsetFade + sunriseFade, 0.0, 1.0);
@@ -159,8 +161,18 @@ void main() {
      vec3 ndcPos = vec3(texcoord.xy, depth) * 2.0 - 1.0; // normalized device coordinates (NDC); [-1.0, 1.0]
   vec3 viewPos = projectAndDivide(gbufferProjectionInverse, ndcPos); // position in view space
   vec3 feetPlayerPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz; // position relative to the feet of the player
+
+  float depthSurface = texture(depthtex0, texcoord).r;
+  float depthBehind = texture(depthtex1, texcoord).r;
+  bool waterInFront = depthBehind - depthSurface > 0.00001;
+  vec4 waterNormal = (texture(colortex3, texcoord) - 0.5) * 2.0;
+
+
   vec3 shadowViewPos = (shadowModelView * vec4 (feetPlayerPos, 1.0)).xyz;
 vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
+  if (waterInFront) {
+        shadowClipPos.xz += waterNormal.xz *0.01;
+  }
 
 // note how subsequent conversion code has been moved to the getSoftShadow function
 
@@ -172,16 +184,17 @@ vec3 shadow = getSoftShadow(shadowClipPos);
 
     float ao = getAO(viewPos, viewNormal);
     ao = clamp(ao, 0.0, 1.0);
-
+    float rainMultipler = rainfall > 0 ? 1.0 - rainStrength*0.5 : 1.0;
    	vec3 blocklight = (lightmap.x-0.25) * blocklightColor;
-   	vec3 skylight = (lightmap.y) * skylightColor * (1.0 - rainStrength*0.1) * getDaylightMultiplier(worldTime);
+   	vec3 skylight = (lightmap.y-0.5) * skylightColor * rainMultipler * getDaylightMultiplier(worldTime);
    	vec3 ambient = ambientColor;//*lightmap.y;
     float hello = clamp(dot(worldLightVector, normal), 0.0, 1.0);
     float bias = smoothstep(0.0, 0.1, hello);
-   	vec3 sunlight = (isNightTime(worldTime) ? 2.5*sunlightColor : moonlightColor) * (1-rainStrength) * hello * bias * shadow;
+   	vec3 sunlight = (isNightTime(worldTime) ? 4*sunlightColor : moonlightColor) * rainMultipler * hello * bias * shadow;
 
 	
-   	color.rgb *= clamp(blocklight + skylight + ambient + sunlight, 0.0, 1.41);
+   	color.rgb *= blocklight + skylight + ambient + sunlight, 0.0, 200;
   //color = vec4(vec3(ao), 1.0);
-	//color = vec4(vec3(lightmap.y), 1.0);
+	//color = vec4(vec3(texture(shadowtex0, texcoord)), 1.0);
+  //color = vec4(waterNormal.xz, 0, 1.0);
 }

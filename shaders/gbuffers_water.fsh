@@ -27,7 +27,6 @@ void main() {
 	color *= texture(lightmap, lmcoord);
 	//color = vec4(vec3(specular), 0.0);
 	waterNormal = vec4(normal * 0.5 + 0.5, 1.0);
-	//color = vec4;
 	if (color.a < alphaTestRef) {
 		discard;
 	}

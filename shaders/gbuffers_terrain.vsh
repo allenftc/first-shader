@@ -60,10 +60,8 @@ void main() {
 			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z;
 		}
 		if (mat == 10000 && texcoord.y < mc_midTexCoord.y) {
-			pos.x += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x * 2;
-			//pos.y += windAmount * pos.y * 0.25;
-			//pos.z += windAmount * pos.z;
-			pos.z += 0.1 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z * 2;
+			pos.x += 0.2 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.x * 2;
+			pos.z += 0.2 * sin(frameTimeCounter*2+worldPos.z*0.5) + windAmount * pos.z * 2;
 		}
 		if (mat == 10001) {
 			pos.y += 0.1 * sin(frameTimeCounter*2+worldPos.x*0.5) + windAmount * pos.y * 0.25;
