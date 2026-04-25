@@ -59,7 +59,7 @@ bool isNightTime(float worldTime) {
 	return worldTime > 12785.0 && worldTime < 23215.0;
 }
 
-vec3 raymarchSSR(vec3 viewPos, vec3 dir, out float hitMask) {
+vec3 raymarchSSR(vec3 viewPos, vec3 dir, out float hitMask, float waterDepth) {
   float stepSize = 0.25;
   vec3 pos = viewPos;
   hitMask = 0.0;
@@ -78,7 +78,7 @@ vec3 raymarchSSR(vec3 viewPos, vec3 dir, out float hitMask) {
     }
 
     float sceneDepth = texture(depthtex1, screen.xy).r;
-    if (screen.z > sceneDepth && sceneDepth < 0.9999) {
+    if (screen.z > sceneDepth && sceneDepth < 0.9999 && sceneDepth >= waterDepth) {
       hitMask = 1.0;
       return screen;
     }
@@ -128,6 +128,7 @@ void main() {
     vec3 pos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 
     vec4 waterData = texture(colortex3, texcoord);
+    float reflectivity = waterData.a;
     bool hasWaterData = waterData.a > 0.5;
     bool waterInFront = hasWaterData && (depthBehind - depthSurface > 0.00001);
     vec3 waterNormal = hasWaterData ? normalize(waterData.xyz * 2.0 - 1.0) : vec3(0.0, 1.0, 0.0);
@@ -165,20 +166,21 @@ void main() {
     if (waterInFront) {
         vec3 waterPosVS = getViewPos(texcoord, depthSurface);
         vec3 V = normalize(-waterPosVS);
-        vec3 R = reflect(-V, waterNormal);
+        vec3 waterNormalVS = normalize(mat3(gbufferModelViewInverse) * waterNormal);
+        vec3 R = reflect(-V, waterNormalVS);
 
         float hitMask;
-        vec3 hit = raymarchSSR(waterPosVS + waterNormal * 0.05, R, hitMask);
+        vec3 hit = raymarchSSR(waterPosVS + waterNormal * 0.05, R, hitMask, depthSurface);
 
-        vec3 reflColor = mix(skyColor, texture(colortex0, hit.xy).rgb, hitMask);
+        vec3 reflColor = mix(skyColor * lightmap.y, texture(colortex0, hit.xy).rgb, hitMask);
 
-        float fresnel = pow(1.0 - max(dot(waterNormal, V), 0.0), 1.5);
+        float fresnel = pow(1.0 - max(dot(waterNormalVS, V), 0.0), 1.5);
 
         float edgeFade = smoothstep(0.0, 0.05, texcoord.x) *
         smoothstep(0.0, 0.05, texcoord.y) *
         smoothstep(1.0, 0.95, texcoord.x) *
         smoothstep(1.0, 0.95, texcoord.y);
-
-        color.rgb = mix(color.rgb, reflColor, fresnel * edgeFade * 0.5);
+ 
+        color.rgb = mix(color.rgb, reflColor, fresnel * edgeFade * 0.5 * reflectivity);
     }
 }

@@ -1,8 +1,11 @@
 #version 330 compatibility
+#include "/lib/exposure.glsl"
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex3;
+uniform sampler2D colortex4;
+
 uniform int isEyeInWater;
 uniform float constantMood;
 uniform float currentPlayerAir;
@@ -16,9 +19,9 @@ uniform bool is_hurt;
 uniform float frameTimeCounter;
 
 in vec2 texcoord;
-/* RENDERTARGETS: 0,4 */
+/* RENDERTARGETS: 0,5 */
 layout(location = 0) out vec4 color;
-layout(location = 4) out vec4 screenColor;
+layout(location = 1) out vec4 exposureOld;
 
 vec3 tonemap(vec3 color) {
     return color / (color + vec3(1.0));
@@ -27,13 +30,13 @@ vec3 tonemap(vec3 color) {
 void main() {
     vec2 uv = texcoord;
     float air = currentPlayerAir < 0.0 ? 0.0 : (1.0-currentPlayerAir);
-    float xWarpAmount = (isEyeInWater == 1 ? 0.00 : 0) + 0.01 * air;
-    float yWarpAmount = (isEyeInWater == 1 ? 0.00 : 0) + 0.01 * air;
+    float xWarpAmount = (isEyeInWater == 1 ? 0.01 : 0) + 0.01 * air;
+    float yWarpAmount = (isEyeInWater == 1 ? 0.01 : 0) + 0.01 * air;
     uv.x += xWarpAmount * sin(uv.x * 10.0 + frameTimeCounter * 5.0);
     uv.y += yWarpAmount * sin(uv.y * 10.0 + frameTimeCounter * 5.0) + (is_burning ? 0.005 * sin(frameTimeCounter * 20.0 + uv.y*100) : 0.0);
     color = texture(colortex0, uv);
-    //color.rgb = tonemap(color.rgb*0.5);
-    color.rgb = pow(color.rgb, vec3(1.0 / 2.5));
+    
+    
     if (isEyeInWater == 1) {
         color.rgb = mix(color.rgb, vec3(0.0, 0.0, 1)*air, 0.5);
     }
@@ -46,10 +49,17 @@ void main() {
     vec3 bloom = texture(colortex1, texcoord).rgb;
     color.rgb += bloom * 0.5;
 
-    float exposure = 0;
-    for (int i = 0; i< 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            exposure += texture(colortex3, texcoord + vec2(float(i-5), float(j-5)) * 0.001).r;
-        }
+    float exposure = texture(colortex4, vec2(0.5)).r;
+    if (exposure != exposure) {
+        exposure = 1.0;
     }
+    exposure = clamp(exposure, EXPOSURE_MIN, EXPOSURE_MAX);
+    //color.rgb *= exposure;
+    //color.rgb = tonemap(color.rgb);
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.5));
+
+    exposureOld = vec4(exposure, 0.0, 0.0, 1.0);
+
+    //color.rgb = texture(colortex4, vec2(0.5)).rgb;
+
 }

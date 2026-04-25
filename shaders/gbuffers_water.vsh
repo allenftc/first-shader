@@ -6,6 +6,8 @@ out vec4 glcolor;
 out vec3 normal;
 out vec3 viewPos;
 
+flat out int materialID;
+
 attribute vec4 mc_Entity;
 
 uniform float frameTimeCounter;
@@ -47,16 +49,21 @@ void main() {
 	vec3 playerFeetPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
 	vec3 worldPos = cameraPosition + playerFeetPos;
 	int mat = int(mc_Entity.x + 0.5);
+	materialID = mat;
 	if (distSq < 1000 && mat == 10002) {
 		//pos.x += 0.1 * sin(frameTimeCounter*2+pos.x);
 		pos.y += wave(worldPos.x, worldPos.z);
 		//pos.z += 0.1 * sin(frameTimeCounter*2+pos.z);
+		normal = getNormal(worldPos);
 		
+	}
+	else {
+		normal = vec3(0,1,0);
 	}
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(pos, 1.0);
 	texcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 	lmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
 	glcolor = gl_Color;
-	normal = getNormal(worldPos);
+	
 	viewPos = (gl_ModelViewMatrix*gl_Vertex).xyz;
 }

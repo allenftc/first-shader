@@ -10,6 +10,8 @@ uniform vec3 sunPosition;
 
 uniform float alphaTestRef = 0.1;
 
+uniform mat4 gbufferModelViewInverse;
+
 in vec2 lmcoord;
 in vec2 texcoord;
 in vec4 glcolor;
@@ -17,6 +19,8 @@ in vec3 normal;
 in vec3 viewPos;
 uniform vec3 playerLookVector;
 uniform mat4 gbufferProjection;
+
+flat in int materialID;
 
 
 /* RENDERTARGETS: 0,3 */
@@ -32,11 +36,16 @@ void main() {
 	color = texture(gtexture, texcoord) * glcolor;
 	color *= texture(lightmap, lmcoord);
 
+	if (materialID == 10003) {
+		color.a = 1.0;
+	}
+
 	
 	if (color.a < alphaTestRef) {
 		discard;
 	}
-
-	waterNormal = vec4(normal * 0.5 + 0.5, 1.0);
+	float reflectivity = materialID == 10002 ? 1 : 0.15;
+	vec3 worldNormal = normalize((gbufferModelViewInverse * vec4(normal, 0.0)).xyz);
+	waterNormal = vec4(worldNormal * 0.5 + 0.5, reflectivity);
 	
 }

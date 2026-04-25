@@ -37,11 +37,11 @@ uniform vec3 cameraPosition;
 uniform vec2 texelSize;
 
 
- const vec3 blocklightColor = vec3(1, 0.25, 0.1);
+ const vec3 blocklightColor = vec3(1, 0.25, 0.1); 
  const vec3 skylightColor = vec3(0.6, 0.4, 0.3);
  const vec3 moonlightColor = vec3(0.2, 0.05, 0.3);
  const vec3 sunlightColor = vec3(1.0, 0.9, 0.8);
- const vec3 ambientColor = vec3(0.1);
+ const vec3 ambientColor = vec3(0.025);
 
 
 in vec2 texcoord;
@@ -337,17 +337,17 @@ vec3 shadow = getSoftShadow(shadowClipPos);
     ao = clamp(ao, 0.0, 1.0);
     float rainMultipler = rainfall > 0 ? 1.0 - rainStrength*0.5 : 1.0;
    	vec3 blocklight = (lightmap.x-0.25) * blocklightColor;
-   	vec3 skylight = (lightmap.y-0.5) * skylightColor * rainMultipler * getDaylightMultiplier(worldTime);
+   	vec3 skylight = clamp((lightmap.y-0.5) * skylightColor * rainMultipler * getDaylightMultiplier(worldTime), 0.0, 1.0);
    	vec3 ambient = ambientColor;//*lightmap.y;
     float hello = clamp(dot(worldLightVector, normal), 0.0, 1.0);
     float bias = smoothstep(0.0, 0.1, hello);
    	vec3 sunlight = (isNightTime(worldTime) ? 4*sunlightColor : moonlightColor) * rainMultipler * hello * bias * shadow;
 
 	
-   	color.rgb *= blocklight + skylight + ambient + sunlight;
+   	color.rgb *= blocklight + skylight + ambient + sunlight + ao * 0.5;
   //color = vec4(vec3(ao), 1.0);
 	//color = vec4(vec3(texture(shadowtex0, texcoord)), 1.0);
-  //color = vec4(waterNormal.xz, 0, 1.0);
+  //color = vec4(vec3(sunlight), 1.0);
 
 
 }
